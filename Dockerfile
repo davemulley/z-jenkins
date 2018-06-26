@@ -1,6 +1,6 @@
 FROM openjdk:8-jdk
 
-RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
+# RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
 
 ARG user=jenkins
 ARG group=jenkins
@@ -33,18 +33,26 @@ RUN mkdir -p /usr/share/jenkins/ref/init.groovy.d
 # Use tini as subreaper in Docker container to adopt zombie processes
 ARG TINI_VERSION=v0.16.1
 COPY tini_pub.gpg ${JENKINS_HOME}/tini_pub.gpg
-RUN curl -fsSL https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-$(dpkg --print-architecture) -o /sbin/tini \
-  && curl -fsSL https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-$(dpkg --print-architecture).asc -o /sbin/tini.asc \
-  && gpg --import ${JENKINS_HOME}/tini_pub.gpg \
+
+#RUN curl -fsSL https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-$(dpkg --print-architecture) -o /sbin/tini \
+#  && curl -fsSL https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-$(dpkg --print-architecture).asc -o /sbin/tini.asc \
+#  && gpg --import ${JENKINS_HOME}/tini_pub.gpg \
+#  && gpg --verify /sbin/tini.asc \
+#  && rm -rf /sbin/tini.asc /root/.gnupg \
+#  && chmod +x /sbin/tini
+
+COPY tini /sbin/tini
+COPY tini.asc /sbin/tini.asc
+RUN gpg --import ${JENKINS_HOME}/tini_pub.gpg \
   && gpg --verify /sbin/tini.asc \
   && rm -rf /sbin/tini.asc /root/.gnupg \
-  && chmod +x /sbin/tini
+ && chmod +x /sbin/tini
 
 COPY init.groovy /usr/share/jenkins/ref/init.groovy.d/tcp-slave-agent-port.groovy
 
 # jenkins version being bundled in this docker image
 ARG JENKINS_VERSION
-ENV JENKINS_VERSION ${JENKINS_VERSION:-2.60.3}
+ENV JENKINS_VERSION ${JENKINS_VERSION:-2.121.1}
 
 # jenkins.war checksum, download will be validated using it
 ARG JENKINS_SHA=2d71b8f87c8417f9303a73d52901a59678ee6c0eefcf7325efed6035ff39372a
@@ -54,12 +62,14 @@ ARG JENKINS_URL=https://repo.jenkins-ci.org/public/org/jenkins-ci/main/jenkins-w
 
 # could use ADD but this one does not check Last-Modified header neither does it allow to control checksum
 # see https://github.com/docker/docker/issues/8331
-RUN curl -fsSL ${JENKINS_URL} -o /usr/share/jenkins/jenkins.war \
-  && echo "${JENKINS_SHA}  /usr/share/jenkins/jenkins.war" | sha256sum -c -
+#RUN curl -fsSL ${JENKINS_URL} -o /usr/share/jenkins/jenkins.war \
+#  && echo "${JENKINS_SHA}  /usr/share/jenkins/jenkins.war" | sha256sum -c -
 
-ENV JENKINS_UC https://updates.jenkins.io
-ENV JENKINS_UC_EXPERIMENTAL=https://updates.jenkins.io/experimental
-ENV JENKINS_INCREMENTALS_REPO_MIRROR=https://repo.jenkins-ci.org/incrementals
+COPY jenkins-war-2.121.1.war /usr/share/jenkins/jenkins.war
+
+ENV JENKINS_UC http://updates.jenkins.io
+ENV JENKINS_UC_EXPERIMENTAL=http://updates.jenkins.io/experimental
+ENV JENKINS_INCREMENTALS_REPO_MIRROR=http://repo.jenkins-ci.org/incrementals
 RUN chown -R ${user} "$JENKINS_HOME" /usr/share/jenkins/ref
 
 # for main web interface:
